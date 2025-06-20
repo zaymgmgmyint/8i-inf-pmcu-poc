@@ -112,7 +112,7 @@ build/
 !**/src/test/**/build/
 
 # Application properties (sensitive data)
-application*.properties
+#application*.properties
 application*.yml
 !application-example*.properties
 !application-example*.yml
