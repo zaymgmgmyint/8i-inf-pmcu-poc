@@ -31,7 +31,58 @@ A Spring Boot application that provides a REST API for interacting with Dahua's 
 
 ## Configuration
 
-Application configuration is managed in `src/main/resources/application.properties`:
+### Configuration Files
+
+1. **Main Configuration** (`src/main/resources/application.properties`):
+   - Contains default configuration values
+   - Should be committed to version control with safe defaults
+   - Example:
+     ```properties
+     # Application
+     spring.application.name=face-scan
+     
+     # Server
+     server.port=8080
+     
+     # WebSocket
+     websocket.endpoint=/ws
+     websocket.topic.prefix=/topic
+     websocket.application.prefix=/app
+     
+     # Logging
+     logging.level.root=INFO
+     logging.level.com._i.dahua=DEBUG
+     ```
+
+2. **Environment-Specific Configuration** (`src/main/resources/application-{env}.properties`):
+   - For environment-specific settings (e.g., `application-dev.properties`, `application-prod.properties`)
+   - Should NOT contain sensitive data
+   - Example for `application-dev.properties`:
+     ```properties
+     # Development environment settings
+     spring.profiles.active=dev
+     ```
+
+3. **Local Override File** (`config/application-local.properties`):
+   - Create a `config` directory in your project root
+   - Add `application-local.properties` with your local settings
+   - This file is in `.gitignore` to prevent committing sensitive data
+   - Example:
+     ```properties
+     # Local development overrides
+     dahua.api.base-url=https://180.180.217.182:443
+     dahua.api.username=your_username
+     dahua.api.password=your_password
+     
+     # MQTT Configuration (if needed)
+     mqtt.broker.url=tcp://localhost:1883
+     mqtt.client.id=local-dev-client
+     mqtt.username=guest
+     mqtt.password=guest
+     mqtt.topic=test/topic
+     ```
+
+**Important Security Note**: Never commit sensitive information like passwords or API keys to version control. Use environment variables or the local override file for sensitive configurations.
 
 ```properties
 # Application
@@ -140,6 +191,43 @@ The application uses a two-step authentication process:
 6. **Access the API**
    - Swagger UI: http://localhost:8080/swagger-ui.html
    - API Docs: http://localhost:8080/api-docs
+
+## Docker Deployment
+
+### Prerequisites
+- Docker installed on your system
+- Access to the Dahua BRM system
+
+### Building the Docker Image
+
+1. **Build the Docker image**
+   ```bash
+   docker build -t 8i-inf-pmcu-poc .
+   ```
+
+2. **Run the container**
+   ```bash
+   docker run -p 8080:8080 \
+     -e DAHUA_API_BASE_URL=https://180.180.217.182:443 \
+     -e DAHUA_API_IP=192.168.100.16 \
+     -e DAHUA_API_USER=system \
+     -e DAHUA_API_PASSWORD=ismart123456 \
+     8i-inf-pmcu-poc
+   ```
+
+### Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DAHUA_API_BASE_URL` | Base URL for Dahua API | `https://180.180.217.182:443` |
+| `DAHUA_API_IP` | IP address for authentication | `192.168.100.16` |
+| `DAHUA_API_USER` | Username for authentication | `system` |
+| `DAHUA_API_PASSWORD` | Password for authentication | `your_password` |
+
+### Accessing the Application
+- The application will be available at: http://localhost:8080
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- API Docs: http://localhost:8080/api-docs
 
 ## Project Structure
 

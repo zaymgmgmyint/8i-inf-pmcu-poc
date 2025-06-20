@@ -42,12 +42,63 @@ target/
 logs/
 *.log
 
-# IDE specific files
+
+# Sensitive data
+**/secrets.*
+**/credentials.*
+**/*.p12
+**/*.jks
+**/*.pem
+
+# Local development files
 .idea/
-*.iws
+.vscode/
 *.iml
 *.ipr
+*.iws
+*.swp
+*.swo
+.DS_Store
+
+# Build directories
+target/
+build/
+bin/
+
+# Maven wrapper\.mvn/wrapper/maven-wrapper.jar
+!\*\*/src/main/\*\*/target/
+!\*\*/src/test/\*\*/target/
+
+# IDE specific files
 .classpath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+
+# VS Code
+.vscode/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Logs
+logs/
+*.log
+
+# Local development environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE specific files (already covered above)
 .project
 .settings/
 .springBeans

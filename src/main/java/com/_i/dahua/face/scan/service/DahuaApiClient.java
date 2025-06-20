@@ -1,7 +1,11 @@
 package com._i.dahua.face.scan.service;
 
 import com._i.dahua.face.scan.dto.*;
-import com._i.dahua.face.scan.util.InsecureTrustManagerFactory;
+import com._i.dahua.face.scan.dto.AuthRequest;
+import com._i.dahua.face.scan.dto.AuthSecondRequest;
+import com._i.dahua.face.scan.dto.FaceRecordRequest;
+import com._i.dahua.face.scan.dto.MqConfigData;
+import com._i.dahua.face.scan.dto.PageInfo;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import jakarta.annotation.PostConstruct;
@@ -24,7 +28,14 @@ import reactor.netty.http.client.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+// SecureRandom not used in this class
+import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 @Service
 @RequiredArgsConstructor
@@ -48,23 +59,217 @@ public class DahuaApiClient {
     
     private WebClient webClient;
     
+    private String userId;
+    private String userGroupId;
+    
+    /**
+     * Fetches the MQ configuration from the Dahua API
+     * @return MqConfigData containing MQ connection details
+     */
+    public MqConfigData getMqConfig() {
+        try {
+            String endpoint = "/brms/api/v1.0/BRM/Config/GetMqConfig";
+            log.info("Fetching MQ configuration from {}{}", baseUrl, endpoint);
+            
+            // Create request body with required fields
+            Map<String, Object> requestBody = new HashMap<>();
+            Map<String, Object> data = new HashMap<>();
+            data.put("type", 1);  // 1 for MQTT configuration
+            data.put("protocol", "stomp");  // Requesting STOMP protocol configuration
+            requestBody.put("data", data);
+            
+            // First, get the raw response as a string for debugging
+            String token = getToken();
+            log.debug("Using token for MQ config request: {}...{}", 
+                token.substring(0, Math.min(5, token.length())), 
+                token.substring(Math.max(0, token.length() - 5)));
+                
+            String rawResponse = webClient.post()
+                    .uri(endpoint)
+                    .header("X-Subject-Token", token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .onStatus(status -> status.isError(), response -> {
+                        log.error("Error response: HTTP {}", response.statusCode().value());
+                        return response.bodyToMono(String.class)
+                            .defaultIfEmpty("No response body")
+                            .flatMap(body -> {
+                                log.error("Response body: {}", body);
+                                return Mono.error(new RuntimeException("Failed to get MQ config: " + response.statusCode().value() + " - " + body));
+                            });
+                    })
+                    .bodyToMono(String.class)
+                    .block();
+                    
+            log.info("Raw MQ configuration response: {}", rawResponse);
+            
+            if (rawResponse == null || rawResponse.trim().isEmpty()) {
+                throw new RuntimeException("Empty response received from MQ config endpoint");
+            }
+            
+            // Parse the response manually to handle different formats
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, Object> responseMap;
+            try {
+                responseMap = objectMapper.readValue(rawResponse, new TypeReference<Map<String, Object>>() {});
+                log.info("Successfully parsed response as JSON");
+            } catch (Exception e) {
+                log.error("Failed to parse response as JSON. Raw response: {}", rawResponse);
+                throw new RuntimeException("Failed to parse MQ configuration response: " + e.getMessage(), e);
+            }
+            
+            log.info("Response map keys: {}", responseMap.keySet());
+            log.info("Response map content: {}", responseMap);
+            
+            // Try different response formats
+            MqConfigData configData = tryParseResponse(responseMap);
+            if (configData != null) {
+                return configData;
+            }
+            
+            // If we get here, none of the expected formats matched
+            throw new RuntimeException("Failed to parse MQ configuration. Unexpected response format: " + rawResponse);
+            
+        } catch (Exception e) {
+            log.error("Error getting MQ configuration: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to get MQ configuration: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Try to parse the response in different possible formats
+     */
+    private MqConfigData tryParseResponse(Map<String, Object> responseMap) {
+        // Try format 1: {code: 0, data: {mqtt: {...}}}
+        if (responseMap.containsKey("code") && (Integer)responseMap.get("code") == 0) {
+            Object dataObj = responseMap.get("data");
+            Map<String, Object> data = null;
+            if (dataObj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> tempData = (Map<String, Object>) dataObj;
+                data = tempData;
+            }
+                
+            if (data == null) {
+                log.error("No data field found in response");
+                throw new RuntimeException("No data field found in MQ configuration response");
+            }
+            if (data != null && data.get("mqtt") instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> mqttConfig = (Map<String, Object>) data.get("mqtt");
+                return parseMqttConfig(mqttConfig);
+            }
+            return parseMqttConfig(data);
+        }
+        
+        // Try format 2: Direct MQTT config at root
+        if (responseMap.containsKey("mqtt") || responseMap.containsKey("stomp")) {
+            return parseMqttConfig(responseMap);
+        }
+        
+        // Try format 3: Direct MQTT config in data field
+        if (responseMap.containsKey("data")) {
+            return parseMqttConfig((Map<String, Object>) responseMap.get("data"));
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Parse MQTT configuration from a map
+     */
+    private MqConfigData parseMqttConfig(Map<String, Object> configMap) {
+        if (configMap == null || configMap.isEmpty()) {
+            return null;
+        }
+        
+        try {
+            MqConfigData configData = new MqConfigData();
+            
+            // Map the MQTT configuration with null checks
+            configData.setEnableTls(getStringSafely(configMap, "enableTls", "false"));
+            configData.setMqtt(getStringSafely(configMap, "mqtt"));
+            configData.setAmqp(getStringSafely(configMap, "amqp"));
+            configData.setStomp(getStringSafely(configMap, "stomp"));
+            configData.setWss(getStringSafely(configMap, "wss"));
+            configData.setAddr(getStringSafely(configMap, "addr"));
+            configData.setUsername(getStringSafely(configMap, "userName", getStringSafely(configMap, "username")));
+            configData.setPassword(getStringSafely(configMap, "password"));
+            
+            log.info("Successfully parsed MQ configuration");
+            log.debug("MQ Configuration - MQTT: {}, AMQP: {}, STOMP: {}, WSS: {}, Addr: {}", 
+                    configData.getMqtt(), configData.getAmqp(), 
+                    configData.getStomp(), configData.getWss(), configData.getAddr());
+            
+            return configData;
+        } catch (Exception e) {
+            log.error("Error parsing MQTT config: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * Safely get a string value from a map with a default value
+     */
+    private String getStringSafely(Map<String, Object> map, String key, String defaultValue) {
+        if (map == null || key == null) {
+            return defaultValue;
+        }
+        Object value = map.get(key);
+        return value != null ? String.valueOf(value) : defaultValue;
+    }
+    
+    /**
+     * Safely get a string value from a map (defaults to null)
+     */
+    @SuppressWarnings("unchecked")
+    private String getStringSafely(Map<String, Object> map, String key) {
+        return getStringSafely(map, key, null);
+    }
+    
     @PostConstruct
     public void init() {
         try {
-            // Create HTTP client that trusts all certificates
-            SslContext sslContext = SslContextBuilder
+            log.info("Initializing WebClient with SSL verification disabled");
+            
+            // Create a trust manager that trusts all certificates
+            X509TrustManager trustManager = new X509TrustManager() {
+                public X509Certificate[] getAcceptedIssuers() {
+                    return new X509Certificate[0];
+                }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+            };
+            
+            // Create SSL context that trusts all certificates
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, new TrustManager[]{trustManager}, new java.security.SecureRandom());
+            
+            // Create HTTP client with custom SSL context
+            SslContext nettySslContext = SslContextBuilder
                     .forClient()
-                    .trustManager(InsecureTrustManagerFactory.getTrustManagers()[0])
+                    .trustManager(trustManager)
                     .build();
 
             HttpClient httpClient = HttpClient.create()
-                    .secure(spec -> spec.sslContext(sslContext));
+                    .secure(spec -> spec.sslContext(nettySslContext)
+                                     .handshakeTimeout(Duration.ofSeconds(30))
+                                     .closeNotifyFlushTimeout(Duration.ofSeconds(10))
+                                     .closeNotifyReadTimeout(Duration.ofSeconds(10)));
 
+            // Configure WebClient with the custom HTTP client
             this.webClient = WebClient.builder()
                     .baseUrl(baseUrl)
                     .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                     .clientConnector(new ReactorClientHttpConnector(httpClient))
+                    .filter((request, next) -> {
+                        log.debug("Making request to: {} {}", request.method(), request.url());
+                        return next.exchange(request);
+                    })
                     .build();
+                    
+            log.info("WebClient initialized with base URL: {}", baseUrl);
         } catch (Exception e) {
             log.error("Failed to initialize WebClient: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to initialize WebClient", e);
@@ -197,6 +402,10 @@ public class DahuaApiClient {
                 log.error("Authentication failed: No token in response. Full response: {}", secondResponse);
                 throw new RuntimeException("Authentication failed: No token received in response");
             }
+
+            // Store userId and userGroupId for later use
+            this.userId = secondResponse.getUserId();
+            this.userGroupId = secondResponse.getUserGroupId();
 
             log.info("Successfully authenticated user: {}", username);
             log.debug("Auth token: {}", secondResponse.getToken());
@@ -374,5 +583,13 @@ public class DahuaApiClient {
             hexString.append(hex);
         }
         return hexString.toString();
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public String getUserGroupId() {
+        return userGroupId;
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+@Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MqDataResponse {
     @JsonProperty("code")
@@ -15,8 +16,8 @@ public class MqDataResponse {
     @JsonProperty("data")
     private MqConfigData data;
     
-    public MqConfigData getData() {
-        return data;
+    public boolean isSuccess() {
+        return code == 0;
     }
     
     public void setData(MqConfigData data) {
@@ -25,6 +26,10 @@ public class MqDataResponse {
     
     public int getCode() {
         return code;
+    }
+    
+    public MqConfigData getData() {
+        return data;
     }
     
     public void setCode(int code) {
