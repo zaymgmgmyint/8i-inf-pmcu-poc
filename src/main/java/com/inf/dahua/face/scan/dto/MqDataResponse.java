@@ -1,4 +1,4 @@
-package com._i.dahua.face.scan.dto;
+package com.inf.dahua.face.scan.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -17,7 +17,8 @@ public class MqDataResponse {
     private MqConfigData data;
     
     public boolean isSuccess() {
-        return code == 0;
+        // Both 0 and 1000 indicate success in the Dahua API
+        return code == 0 || code == 1000;
     }
     
     public void setData(MqConfigData data) {

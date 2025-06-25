@@ -1,7 +1,8 @@
-package com._i.dahua.face.scan.controller;
+package com.inf.dahua.face.scan.controller;
 
-import com._i.dahua.face.scan.dto.MqDataResponse;
-import com._i.dahua.face.scan.service.DahuaApiClient;
+import com.inf.dahua.face.scan.dto.AuthResponse;
+import com.inf.dahua.face.scan.dto.MqDataResponse;
+import com.inf.dahua.face.scan.service.DahuaApiClient;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -49,21 +50,22 @@ public class DahuaController {
         return dahuaApiClient.getToken();
     }
 
-    @Operation(summary = "Get face records with pagination")
-    @GetMapping("/face-records")
-    public Map<String, Object> getFaceRecords(
-            @RequestParam(defaultValue = "1") int pageNo,
-            @RequestParam(defaultValue = "10") int pageSize,
-            @RequestParam(required = false) String startTime,
-            @RequestParam(required = false) String endTime) {
-        String token = getToken();
-        return dahuaApiClient.getFaceRecords(token, pageNo, pageSize, startTime, endTime);
+    @GetMapping("/first-auth")
+    @ResponseBody
+    public AuthResponse getFirstAuthResponse() {
+        return dahuaApiClient.getFirstLoginResponse();
     }
 
+    @GetMapping("/second-auth")
+    @ResponseBody
+    public AuthResponse getSecondAuthResponse() {
+        return dahuaApiClient.getSecondLoginResponse();
+    }
+
+
     @Operation(summary = "Get MQ configuration from DSS")
-    @PostMapping("/mq-config")
-    public MqDataResponse getMqConfig(@RequestBody(required = false) Map<String, Object> requestBody) {
-        log.info("Received MQ config request with body: {}", requestBody);
+    @GetMapping("/mq-config")
+    public MqDataResponse getMqConfig() {
         String token = getToken();
         return dahuaApiClient.getMqData(token);
     }

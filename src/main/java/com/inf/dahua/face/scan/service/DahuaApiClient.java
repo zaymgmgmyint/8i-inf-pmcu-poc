@@ -1,22 +1,12 @@
-package com._i.dahua.face.scan.service;
+package com.inf.dahua.face.scan.service;
 
-import com._i.dahua.face.scan.dto.*;
-import com._i.dahua.face.scan.dto.AuthRequest;
-import com._i.dahua.face.scan.dto.AuthSecondRequest;
-import com._i.dahua.face.scan.dto.FaceRecordRequest;
-import com._i.dahua.face.scan.dto.MqConfigData;
-import com._i.dahua.face.scan.dto.PageInfo;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
+import com.inf.dahua.face.scan.dto.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -24,23 +14,20 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 // SecureRandom not used in this class
-import java.security.cert.X509Certificate;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 
 @Service
-@RequiredArgsConstructor
 public class DahuaApiClient {
     private static final Logger log = LoggerFactory.getLogger(DahuaApiClient.class);
+
+    @Autowired
+    private WebClient webClient;
 
     @Value("${dahua.api.base-url}")
     private String baseUrl;
@@ -56,8 +43,6 @@ public class DahuaApiClient {
     
     @Value("${dahua.api.ip-address:}")
     private String ipAddress;
-    
-    private WebClient webClient;
     
     private String userId;
     private String userGroupId;
@@ -227,52 +212,214 @@ public class DahuaApiClient {
     private String getStringSafely(Map<String, Object> map, String key) {
         return getStringSafely(map, key, null);
     }
-    
-    @PostConstruct
-    public void init() {
+
+    public AuthResponse getFirstLoginResponse() {
+
+        log.info("Starting first authentication with username: {}", username);
+
+        // First authentication step - get challenge
+        AuthRequest authRequest = new AuthRequest();
+        authRequest.setUserName(username);
+        authRequest.setIpAddress(ipAddress);
+        authRequest.setClientType(clientType);
+
+        log.info("Sending first auth request to {}/brms/api/v1.0/accounts/authorize", baseUrl);
+        log.info("Request body: username={}, clientType={}, ipAddress={}",
+                username, clientType, ipAddress);
+
+        // First request - expect 401 with challenge data
+        AuthResponse firstResponse = webClient.post()
+                .uri("/brms/api/v1.0/accounts/authorize")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(authRequest)
+                .retrieve()
+                .onStatus(status -> status.is4xxClientError() && status.value() != 401, response -> {
+                    log.error("Unexpected error in first auth request: {}", response.statusCode());
+                    return response.bodyToMono(String.class)
+                            .defaultIfEmpty("")
+                            .flatMap(body -> {
+                                log.error("Error response body: {}", body);
+                                return Mono.error(new RuntimeException("First auth request failed: " +
+                                        response.statusCode() + " - " + body));
+                            });
+                })
+                .bodyToMono(AuthResponse.class)
+                .onErrorResume(WebClientResponseException.class, e -> {
+                    if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                        try {
+                            // Parse the error response as AuthResponse
+                            ObjectMapper mapper = new ObjectMapper();
+                            String responseBody = e.getResponseBodyAsString();
+                            log.debug("Received 401 response with body: {}", responseBody);
+
+                            AuthResponse challenge = mapper.readValue(responseBody, AuthResponse.class);
+                            log.info("Successfully parsed challenge data - realm: {}, randomKey: {}, publicKey: {}",
+                                    challenge.getRealm(), challenge.getRandomKey(), challenge.getPublicKey());
+                            return Mono.just(challenge);
+                        } catch (Exception ex) {
+                            log.error("Failed to parse challenge data: {}", ex.getMessage());
+                            log.error("Response body: {}", e.getResponseBodyAsString(), ex);
+                            return Mono.error(new RuntimeException("Failed to parse challenge data", ex));
+                        }
+                    }
+                    log.error("Error in first auth request: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+                    return Mono.error(e);
+                })
+                .block();
+
+        if (firstResponse == null) {
+            throw new RuntimeException("Failed to get authentication challenge: Empty response");
+        }
+
+        log.info("Successfully received auth challenge - realm: {}, randomKey: {}, encryptType: {}",
+                firstResponse.getRealm(), firstResponse.getRandomKey(), firstResponse.getEncryptType());
+        return firstResponse;
+    }
+
+    public AuthResponse getSecondLoginResponse() {
         try {
-            log.info("Initializing WebClient with SSL verification disabled");
-            
-            // Create a trust manager that trusts all certificates
-            X509TrustManager trustManager = new X509TrustManager() {
-                public X509Certificate[] getAcceptedIssuers() {
-                    return new X509Certificate[0];
-                }
-                public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-            };
-            
-            // Create SSL context that trusts all certificates
-            SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(null, new TrustManager[]{trustManager}, new java.security.SecureRandom());
-            
-            // Create HTTP client with custom SSL context
-            SslContext nettySslContext = SslContextBuilder
-                    .forClient()
-                    .trustManager(trustManager)
-                    .build();
+            log.info("Starting authentication with username: {}", username);
 
-            HttpClient httpClient = HttpClient.create()
-                    .secure(spec -> spec.sslContext(nettySslContext)
-                                     .handshakeTimeout(Duration.ofSeconds(30))
-                                     .closeNotifyFlushTimeout(Duration.ofSeconds(10))
-                                     .closeNotifyReadTimeout(Duration.ofSeconds(10)));
+            // First authentication step - get challenge
+            AuthRequest authRequest = new AuthRequest();
+            authRequest.setUserName(username);
+            authRequest.setIpAddress(ipAddress);
+            authRequest.setClientType(clientType);
 
-            // Configure WebClient with the custom HTTP client
-            this.webClient = WebClient.builder()
-                    .baseUrl(baseUrl)
-                    .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                    .clientConnector(new ReactorClientHttpConnector(httpClient))
-                    .filter((request, next) -> {
-                        log.debug("Making request to: {} {}", request.method(), request.url());
-                        return next.exchange(request);
+            log.info("Sending first auth request to {}/brms/api/v1.0/accounts/authorize", baseUrl);
+            log.info("Request body: username={}, clientType={}, ipAddress={}",
+                    username, clientType, ipAddress);
+
+            // First request - expect 401 with challenge data
+            AuthResponse firstResponse = webClient.post()
+                    .uri("/brms/api/v1.0/accounts/authorize")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(authRequest)
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() && status.value() != 401, response -> {
+                        log.error("Unexpected error in first auth request: {}", response.statusCode());
+                        return response.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(body -> {
+                                    log.error("Error response body: {}", body);
+                                    return Mono.error(new RuntimeException("First auth request failed: " +
+                                            response.statusCode() + " - " + body));
+                                });
                     })
-                    .build();
-                    
-            log.info("WebClient initialized with base URL: {}", baseUrl);
+                    .bodyToMono(AuthResponse.class)
+                    .onErrorResume(WebClientResponseException.class, e -> {
+                        if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                            try {
+                                // Parse the error response as AuthResponse
+                                ObjectMapper mapper = new ObjectMapper();
+                                String responseBody = e.getResponseBodyAsString();
+                                log.debug("Received 401 response with body: {}", responseBody);
+
+                                AuthResponse challenge = mapper.readValue(responseBody, AuthResponse.class);
+                                log.info("Successfully parsed challenge data - realm: {}, randomKey: {}",
+                                        challenge.getRealm(), challenge.getRandomKey());
+                                return Mono.just(challenge);
+                            } catch (Exception ex) {
+                                log.error("Failed to parse challenge data: {}", ex.getMessage());
+                                log.error("Response body: {}", e.getResponseBodyAsString(), ex);
+                                return Mono.error(new RuntimeException("Failed to parse challenge data", ex));
+                            }
+                        }
+                        log.error("Error in first auth request: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+                        return Mono.error(e);
+                    })
+                    .block();
+
+            if (firstResponse == null) {
+                throw new RuntimeException("Failed to get authentication challenge: Empty response");
+            }
+
+            log.info("Successfully received auth challenge - realm: {}, randomKey: {}, encryptType: {}",
+                    firstResponse.getRealm(), firstResponse.getRandomKey(), firstResponse.getEncryptType());
+
+            // Second authentication step
+            String signature = generateSignature(
+                    firstResponse.getRealm(),
+                    firstResponse.getRandomKey()
+            );
+            log.debug("Generated signature: {}", signature);
+
+            AuthSecondRequest secondRequest = new AuthSecondRequest();
+            secondRequest.setSignature(signature);
+            secondRequest.setUserName(username);
+            secondRequest.setRandomKey(firstResponse.getRandomKey());
+            secondRequest.setEncryptType(firstResponse.getEncryptType() != null ? firstResponse.getEncryptType() : "MD5");
+            secondRequest.setClientType(clientType);
+            secondRequest.setIpAddress(ipAddress);
+            secondRequest.setUserType("0");
+
+            // Set public key if available from challenge
+            if (firstResponse.getPublicKey() != null) {
+                secondRequest.setPublicKey(firstResponse.getPublicKey());
+                log.debug("Included public key in second request");
+            }
+
+            log.info("Sending second auth request with signature");
+            log.debug("Second request body: {}", secondRequest);
+
+            AuthResponse secondResponse = webClient.post()
+                    .uri("/brms/api/v1.0/accounts/authorize")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(secondRequest)
+                    .retrieve()
+                    .onStatus(status -> status.isError(), response -> {
+                        log.error("Second auth request failed with status: {}", response.statusCode());
+                        return response.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(body -> {
+                                    log.error("Error response body: {}", body);
+                                    String errorMessage = String.format(
+                                            "Second auth request failed with status %d: %s",
+                                            response.statusCode().value(), body);
+                                    log.error(errorMessage);
+                                    return Mono.error(new RuntimeException(errorMessage));
+                                });
+                    })
+                    .bodyToMono(AuthResponse.class)
+                    .onErrorResume(WebClientResponseException.class, e -> {
+                        String errorMessage = String.format("Second auth request failed with status %d: %s",
+                                e.getStatusCode().value(), e.getResponseBodyAsString());
+                        log.error(errorMessage);
+                        log.debug("Full error response: {}", e.getResponseBodyAsString());
+                        return Mono.error(new RuntimeException(errorMessage, e));
+                    })
+                    .onErrorResume(e -> {
+                        log.error("Unexpected error during second auth request", e);
+                        return Mono.error(new RuntimeException("Unexpected error during authentication", e));
+                    })
+                    .block();
+
+            if (secondResponse == null) {
+                throw new RuntimeException("Authentication failed: Empty response received");
+            }
+
+            if (secondResponse.getToken() == null) {
+                log.error("Authentication failed: No token in response. Full response: {}", secondResponse);
+                throw new RuntimeException("Authentication failed: No token received in response");
+            }
+
+            // Store userId and userGroupId for later use
+            this.userId = secondResponse.getUserId();
+            this.userGroupId = secondResponse.getUserGroupId();
+
+            log.info("Successfully authenticated user: {}", username);
+            log.debug("Auth token: {}", secondResponse.getToken());
+            log.debug("Auth response details: userId={}, userGroupId={}, duration={}s",
+                    secondResponse.getUserId(),
+                    secondResponse.getUserGroupId(),
+                    secondResponse.getDuration());
+
+            return secondResponse;
+
         } catch (Exception e) {
-            log.error("Failed to initialize WebClient: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to initialize WebClient", e);
+            String errorMsg = "Authentication failed: " + e.getMessage();
+            log.error(errorMsg, e);
+            throw new RuntimeException(errorMsg, e);
         }
     }
 
@@ -352,7 +499,7 @@ public class DahuaApiClient {
             secondRequest.setClientType(clientType);
             secondRequest.setIpAddress(ipAddress);
             secondRequest.setUserType("0");
-            
+
             // Set public key if available from challenge
             if (firstResponse.getPublicKey() != null) {
                 secondRequest.setPublicKey(firstResponse.getPublicKey());
@@ -420,41 +567,6 @@ public class DahuaApiClient {
             String errorMsg = "Authentication failed: " + e.getMessage();
             log.error(errorMsg, e);
             throw new RuntimeException(errorMsg, e);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public Map<String, Object> getFaceRecords(String token, int page, int pageSize, String startTime, String endTime) {
-        try {
-            FaceRecordRequest request = new FaceRecordRequest();
-            PageInfo pageInfo = new PageInfo();
-            pageInfo.setPageNo(page);
-            pageInfo.setPageSize(pageSize);
-            request.setPageInfo(pageInfo);
-            
-            if (startTime != null && !startTime.isEmpty()) {
-                request.setStartTime(startTime);
-            }
-            if (endTime != null && !endTime.isEmpty()) {
-                request.setEndTime(endTime);
-            }
-
-            Map<String, Object> response = webClient.post()
-                    .uri("/brms/api/v1.0/face/snapshot/record/page")
-                    .header("X-Subject-Token", token)
-                    .bodyValue(request)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .block();
-            
-            return response != null ? response : Map.of();
-
-        } catch (WebClientResponseException e) {
-            log.error("Failed to fetch face records: {} - {}", e.getStatusCode().value(), e.getResponseBodyAsString());
-            throw new RuntimeException("Failed to fetch face records: " + e.getResponseBodyAsString(), e);
-        } catch (Exception e) {
-            log.error("Unexpected error while fetching face records: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to fetch face records", e);
         }
     }
     
@@ -585,11 +697,4 @@ public class DahuaApiClient {
         return hexString.toString();
     }
 
-    public String getUserId() {
-        return userId;
-    }
-
-    public String getUserGroupId() {
-        return userGroupId;
-    }
 }

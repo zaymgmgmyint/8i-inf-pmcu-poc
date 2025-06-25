@@ -1,4 +1,4 @@
-package com._i.dahua.face.scan.dto;
+package com.inf.dahua.face.scan.dto;
 
 public class FaceRecordRequest {
     private PageInfo pageInfo;

@@ -1,4 +1,4 @@
-package com._i.dahua.face.scan.dto;
+package com.inf.dahua.face.scan.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

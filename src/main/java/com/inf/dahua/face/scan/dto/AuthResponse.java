@@ -1,12 +1,14 @@
-package com._i.dahua.face.scan.dto;
+package com.inf.dahua.face.scan.dto;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
 
 import java.util.HashMap;
 import java.util.Map;
 
+@Data
 public class AuthResponse {
     @JsonIgnore
     private Map<String, Object> additionalProperties = new HashMap<>();
@@ -24,7 +26,6 @@ public class AuthResponse {
     private String randomKey;
     @JsonProperty("encryptType")
     private String encryptType;
-    @JsonIgnore
     private String publicKey;
     private String token;
     private Integer duration;

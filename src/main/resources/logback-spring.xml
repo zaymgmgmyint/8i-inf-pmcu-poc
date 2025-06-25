@@ -24,11 +24,19 @@
         </rollingPolicy>
     </appender>
     
-    <!-- MQ Specific Logging -->
-    <logger name="com._i.dahua.face.scan.service.DahuaMqService" level="DEBUG"/>
-    <logger name="org.springframework.messaging.simp.stomp" level="DEBUG"/>
-    <logger name="org.springframework.web.socket" level="INFO"/>
-    
+    <!-- Package Level Logging -->
+    <logger name="com.inf.dahua.face.scan" level="DEBUG"/>
+    <logger name="com.inf.dahua.face.scan.service" level="DEBUG"/>
+    <logger name="com.inf.dahua.face.scan.controller" level="INFO"/>
+    <logger name="com.inf.dahua.face.scan.config" level="INFO"/>
+
+    <!-- Third-party Package Logging -->
+    <logger name="org.springframework" level="INFO"/>
+    <logger name="org.apache.activemq" level="INFO"/>
+    <logger name="reactor.netty" level="INFO"/>
+    <logger name="io.netty" level="INFO"/>
+
+    <!-- Root Logger -->
     <root level="${LOG_LEVEL:-INFO}">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>

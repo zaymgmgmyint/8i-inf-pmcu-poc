@@ -1,12 +1,14 @@
-package com._i.dahua.face.scan.dto;
+package com.inf.dahua.face.scan.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import lombok.ToString;
 
 /**
  * MQ configuration data received from Dahua API
  */
 @Data
+@ToString
 public class MqConfigData {
     private static final String ADDR_DELIMITER = ":";
     private static final int DEFAULT_STOMP_PORT = 61613;

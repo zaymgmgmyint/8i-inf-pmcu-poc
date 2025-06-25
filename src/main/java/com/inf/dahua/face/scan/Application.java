@@ -1,4 +1,4 @@
-package com._i.dahua.face.scan;
+package com.inf.dahua.face.scan;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

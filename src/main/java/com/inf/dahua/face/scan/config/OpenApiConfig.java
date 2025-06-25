@@ -1,4 +1,4 @@
-package com._i.dahua.face.scan.config;
+package com.inf.dahua.face.scan.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;

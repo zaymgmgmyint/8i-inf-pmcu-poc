@@ -262,6 +262,43 @@ src/
    - Check if MQ service is properly configured in Dahua
    - Review server logs for detailed error messages
 
+3. **MQ Connection Issues**
+   - The application now includes robust MQ connection handling with automatic retries
+   - Configure retry behavior using the following properties:
+     ```properties
+     # Number of times to retry connecting to MQ broker
+     mq.connection.retry-attempts=3
+     # Delay between retry attempts in milliseconds
+     mq.connection.retry-delay=5000
+     ```
+   - Health checks periodically verify the connection and can automatically reconnect:
+     ```properties
+     # Interval between health checks in milliseconds (default: 5 minutes)
+     mq.health-check.interval=300000
+     # Enable/disable health checks
+     mq.health-check.enabled=true
+     # Automatically attempt to reconnect if connection is unhealthy
+     mq.health-check.reconnect-on-failure=true
+     ```
+   - For authentication issues, you can provide fallback credentials via environment variables:
+     ```bash
+     # Override API-provided credentials with direct broker credentials
+     export MQ_FALLBACK_USERNAME=your_broker_username
+     export MQ_FALLBACK_PASSWORD=your_broker_password
+     ```
+   - The application now includes diagnostic endpoints to help troubleshoot MQ issues:
+     ```
+     # View raw MQ config from API
+     GET /api/test/mq-config
+
+     # Test MQ connection with custom credentials
+     POST /api/test/mq-connection?username=test&password=test
+
+     # Check MQ connection health
+     GET /api/test/mq-health
+     ```
+   - See [MQ Authentication Troubleshooting](docs/MQ-AUTHENTICATION.md) for more details
+
 3. **Log Files**
    - Application logs: `logs/face-scan.log`
    - Enable DEBUG logging for detailed troubleshooting

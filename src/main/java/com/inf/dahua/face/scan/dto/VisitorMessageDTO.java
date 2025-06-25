@@ -1,4 +1,4 @@
-package com._i.dahua.face.scan.dto;
+package com.inf.dahua.face.scan.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
