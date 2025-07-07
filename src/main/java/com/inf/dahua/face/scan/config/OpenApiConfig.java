@@ -22,12 +22,12 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI faceScanOpenAPI() {
         return new OpenAPI()
-                .info(new Info().title("Face Scan API")
-                        .description("API documentation for Face Scan Application")
+                .info(new Info().title("Innoflex-Dahua API Integration")
+                        .description("API documentation for DSS Application")
                         .version("v0.0.1")
                         .contact(new Contact()
-                                .name("Face Scan Team")
-                                .email("contact@example.com"))
+                                .name("Bee Dev Team")
+                                .email("hellowrold@example.com"))
                         .license(new License()
                                 .name("Apache 2.0")
                                 .url("https://www.apache.org/licenses/LICENSE-2.0.html")));

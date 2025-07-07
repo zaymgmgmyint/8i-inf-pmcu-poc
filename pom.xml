@@ -56,12 +56,7 @@
             <version>5.17.6</version>
         </dependency>
         
-        <!-- Apache HTTP Client -->
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.5.13</version>
-        </dependency>
+        
         
         <!-- FastJSON -->
         <dependency>
@@ -70,12 +65,7 @@
             <version>1.2.83</version>
         </dependency>
         
-        <!-- Bouncy Castle -->
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk15on</artifactId>
-            <version>1.70</version>
-        </dependency>
+        
         
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -88,12 +78,7 @@
             <artifactId>spring-boot-starter-logging</artifactId>
         </dependency>
         
-        <!-- Java EE APIs -->
-        <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-            <version>1.3.2</version>
-        </dependency>
+        
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -142,18 +127,9 @@
 			<artifactId>jackson-databind</artifactId>
 		</dependency>
 
-		<!-- WebSocket -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-websocket</artifactId>
-		</dependency>
 		
-		<!-- MQTT over WebSocket -->
-		<dependency>
-			<groupId>org.eclipse.paho</groupId>
-			<artifactId>org.eclipse.paho.mqttv5.client</artifactId>
-			<version>1.2.5</version>
-		</dependency>
+		
+		
 		<!-- Jakarta Annotations (replaces javax.annotations) -->
 		<dependency>
 			<groupId>jakarta.annotation</groupId>
@@ -161,70 +137,21 @@
 			<version>2.1.1</version>
 		</dependency>
 
-		<!-- SSL Support -->
-		<dependency>
-			<groupId>org.apache.httpcomponents.client5</groupId>
-			<artifactId>httpclient5</artifactId>
-		</dependency>
+		
 
-		<!-- STOMP and WebSocket -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-websocket</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-messaging</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.webjars</groupId>
-			<artifactId>stomp-websocket</artifactId>
-			<version>2.3.4</version>
-		</dependency>
+		
+		
+		
 
-		<!-- Jakarta Annotations (for @PostConstruct) -->
-		<dependency>
-			<groupId>jakarta.annotation</groupId>
-			<artifactId>jakarta.annotation-api</artifactId>
-			<version>2.1.1</version>
-		</dependency>
+		
 
-		<!-- Jetty WebSocket -->
-		<dependency>
-			<groupId>org.eclipse.jetty.websocket</groupId>
-			<artifactId>websocket-jetty-api</artifactId>
-			<version>11.0.16</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty.websocket</groupId>
-			<artifactId>websocket-jetty-client</artifactId>
-			<version>11.0.16</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-client</artifactId>
-			<version>11.0.16</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-http</artifactId>
-			<version>11.0.16</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-util</artifactId>
-			<version>11.0.16</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-io</artifactId>
-			<version>11.0.16</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-util-ajax</artifactId>
-			<version>11.0.16</version>
-		</dependency>
+		
+		
+		
+		
+		
+		
+		
 
 	</dependencies>
 
