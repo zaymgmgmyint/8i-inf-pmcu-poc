@@ -4,7 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 /**
- * Request object for MQ operations
+ * Request object for MQ operations.
+ * Contains configuration for message queue consumption and acknowledgment.
  */
 @Data
 public class MqDataRequest {
@@ -24,29 +25,5 @@ public class MqDataRequest {
     private boolean autoAck = true;
     
     @JsonProperty("timeout")
-    private long timeout = 5000; // 5 seconds
-
-    public String getGroupId() {
-        return groupId;
-    }
-
-    public void setGroupId(String groupId) {
-        this.groupId = groupId;
-    }
-
-    public String getOffset() {
-        return offset;
-    }
-
-    public void setOffset(String offset) {
-        this.offset = offset;
-    }
-
-    public int getLimit() {
-        return limit;
-    }
-
-    public void setLimit(int limit) {
-        this.limit = limit;
-    }
+    private long timeout = 5000;
 }

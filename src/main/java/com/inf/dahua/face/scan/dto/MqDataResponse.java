@@ -4,6 +4,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+/**
+ * Response DTO for MQ operations.
+ * Contains response code, description and MQ configuration data.
+ */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MqDataResponse {
@@ -16,33 +20,12 @@ public class MqDataResponse {
     @JsonProperty("data")
     private MqConfigData data;
     
+    /**
+     * Checks if the response indicates a successful operation.
+     * Both 0 and 1000 are considered success codes in the Dahua API.
+     */
     public boolean isSuccess() {
-        // Both 0 and 1000 indicate success in the Dahua API
         return code == 0 || code == 1000;
-    }
-    
-    public void setData(MqConfigData data) {
-        this.data = data;
-    }
-    
-    public int getCode() {
-        return code;
-    }
-    
-    public MqConfigData getData() {
-        return data;
-    }
-    
-    public void setCode(int code) {
-        this.code = code;
-    }
-    
-    public String getDesc() {
-        return desc;
-    }
-    
-    public void setDesc(String desc) {
-        this.desc = desc;
     }
     
     @JsonIgnoreProperties(ignoreUnknown = true)

@@ -4,18 +4,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * DTO for pagination information.
+ * Used across various requests to handle paginated results.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class PageInfo {
     private int pageNo;
     private int pageSize;
-    
-    public void setPageNo(int pageNo) {
-        this.pageNo = pageNo;
-    }
-    
-    public void setPageSize(int pageSize) {
-        this.pageSize = pageSize;
-    }
 }
